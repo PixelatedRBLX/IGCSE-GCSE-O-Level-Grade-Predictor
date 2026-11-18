@@ -92,6 +92,10 @@ footer a{color:var(--accent)}
       <span class="label" id="qual-l">Qualification</span>
       <div class="seg" id="qual" role="group" aria-labelledby="qual-l"></div>
     </div>
+    <div id="type-box" hidden>
+      <span class="label" id="type-l">IGCSE type</span>
+      <div class="seg" id="type" role="group" aria-labelledby="type-l"></div>
+    </div>
     <div id="board-box" hidden>
       <span class="label" id="board-l">Exam board</span>
       <div class="seg" id="board" role="group" aria-labelledby="board-l"></div>
@@ -134,10 +138,10 @@ const DATA = {"cie_igcse":[{"code":"0452","name":"Accounting","grades":["A*","A"
 const G9=['9','8','7','6','5','4','3','2','1'], GA=['A*','A','B','C','D','E'];
 const STAGES=[{id:'gcse',name:'IGCSE, GCSE & O Level'},{id:'alevel',name:'AS & A Level'}];
 const QUALS=[
- {id:'cie_igcse',stage:'gcse',name:'Cambridge IGCSE',kind:'cie',src:'Cambridge International grade threshold tables, June 2026',url:'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-upper-secondary/cambridge-igcse/grade-threshold-tables/june-2026/'},
- {id:'edx_igcse',stage:'gcse',name:'Edexcel International GCSE',kind:'simple',grades:G9,src:'Pearson Edexcel International GCSE grade boundaries, June 2026',url:'https://qualifications.pearson.com/content/dam/pdf/Support/Grade-boundaries/International-GCSE/grade-boundaries-june-2026-international-gcse.pdf'},
+ {id:'cie_igcse',stage:'gcse',grp:'igcse',name:'Cambridge IGCSE',kind:'cie',src:'Cambridge International grade threshold tables, June 2026',url:'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-upper-secondary/cambridge-igcse/grade-threshold-tables/june-2026/'},
+ {id:'edx_igcse',stage:'gcse',grp:'igcse',name:'Edexcel International GCSE',kind:'simple',grades:G9,src:'Pearson Edexcel International GCSE grade boundaries, June 2026',url:'https://qualifications.pearson.com/content/dam/pdf/Support/Grade-boundaries/International-GCSE/grade-boundaries-june-2026-international-gcse.pdf'},
  {id:'gcse',stage:'gcse',name:'GCSE (UK)',kind:'simple',grades:G9,boards:'gcse'},
- {id:'cie_olevel',stage:'gcse',name:'Cambridge O Level',kind:'cie',src:'Cambridge International O Level grade threshold tables, June 2026',url:'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-upper-secondary/cambridge-o-level/grade-threshold-tables/june-2026/'},
+ {id:'cie_olevel',stage:'gcse',grp:'igcse',name:'Cambridge O Level',kind:'cie',src:'Cambridge International O Level grade threshold tables, June 2026',url:'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-upper-secondary/cambridge-o-level/grade-threshold-tables/june-2026/'},
  {id:'cie_alevel',stage:'alevel',name:'Cambridge AS & A Level',kind:'cie',src:'Cambridge International AS & A Level grade threshold tables, June 2026',url:'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-advanced/cambridge-international-as-and-a-levels/grade-threshold-tables/june-2026/'},
  {id:'ial',stage:'alevel',name:'Edexcel International A Level',kind:'ial',src:'Pearson Edexcel International AS/A Level grade boundaries, June 2026',url:'https://qualifications.pearson.com/content/dam/pdf/Support/Grade-boundaries/International-A-level/grade-boundaries-june-2026-international-advanced-level.pdf'},
  {id:'alevel',stage:'alevel',name:'UK A Level',kind:'simple',grades:GA,boards:'alevel'}
@@ -152,6 +156,8 @@ const BOARDS={
   {id:'alevel_edx',name:'Pearson Edexcel',src:'Pearson Edexcel GCE A level grade boundaries, June 2026',url:'https://qualifications.pearson.com/content/dam/pdf/Support/Grade-boundaries/A-level/grade-boundaries-june-2026-gce.pdf'},
   {id:'alevel_ocr',name:'OCR',src:'OCR AS and A Level grade boundaries, June 2026',url:'https://www.ocr.org.uk/Images/760861-as-and-a-level-grade-boundaries-june-2026.pdf'}]
 };
+const GROUPS={igcse:'IGCSE'};
+const lastInGrp={};
 const state={stage:'gcse',qual:'cie_igcse',board:{gcse:'gcse_aqa',alevel:'alevel_aqa'},subject:0,route:0,marks:{},units:{},example:true};
 const $=id=>document.getElementById(id);
 
@@ -418,8 +424,19 @@ function renderFoot(){
 function resetSel(){state.subject=0;state.route=0;state.marks={};state.example=false}
 function full(){
   renderSeg($('stage'),STAGES,state.stage,id=>{state.stage=id;state.qual=QUALS.find(q=>q.stage===id).id;resetSel();full()});
-  renderSeg($('qual'),QUALS.filter(q=>q.stage===state.stage),state.qual,id=>{state.qual=id;resetSel();full()});
+  const top=[];
+  QUALS.filter(x=>x.stage===state.stage).forEach(x=>{
+    if(x.grp){ if(!top.some(t=>t.id==='grp:'+x.grp)) top.push({id:'grp:'+x.grp,name:GROUPS[x.grp]}); }
+    else top.push(x);
+  });
   const q=qual();
+  if(q.grp) lastInGrp[q.grp]=q.id;
+  renderSeg($('qual'),top,q.grp?'grp:'+q.grp:q.id,id=>{
+    if(id.startsWith('grp:')){const g=id.slice(4);if(q.grp===g)return;state.qual=lastInGrp[g]||QUALS.find(x=>x.grp===g).id}
+    else state.qual=id;
+    resetSel();full()});
+  $('type-box').hidden=!q.grp;
+  if(q.grp) renderSeg($('type'),QUALS.filter(x=>x.grp===q.grp),q.id,id=>{state.qual=id;resetSel();full()});
   $('board-box').hidden=!q.boards;
   if(q.boards) renderSeg($('board'),BOARDS[q.boards],state.board[q.boards],id=>{state.board[q.boards]=id;resetSel();full()});
   if(state.subject>=subjects().length) state.subject=0;
